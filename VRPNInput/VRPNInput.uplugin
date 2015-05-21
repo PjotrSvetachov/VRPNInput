@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "CIT VRPN plugin that does the Stereo",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Pjotr Svetachov.",
+	"CreatedByURL" : "www.rug.nl/cit",
+	"EngineVersion" : "4.7.0",
+	"Description" : "This plugins is used inside the CIT to make it possible in the unreal engine to receive stereo from VRPN devices.",
+	"Category" : "CIT",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "VRPNInput",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostConfigInit"
+		}
+	]
+}
