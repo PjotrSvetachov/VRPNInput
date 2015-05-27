@@ -25,11 +25,14 @@ SOFTWARE.
 #include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDevice.h"
 
-VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerName, const FString &TrackerAddress) {
-	UE_LOG(LogVRPNInputDevice, Log, TEXT("Createing VRPNButtonInputDevice %s on adress %s."), *TrackerName, *TrackerAddress);
-	InputDevice = new vrpn_Button_Remote(TCHAR_TO_UTF8(*TrackerAddress));
-	//InputDevice->shutup = true;
-	InputDevice->register_change_handler(this, &VRPNButtonInputDevice::HandleButtonDevice);
+VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerAddress, bool bEnabled):
+InputDevice(nullptr)
+{
+	if(bEnabled){
+		InputDevice = new vrpn_Button_Remote(TCHAR_TO_UTF8(*TrackerAddress));
+		//InputDevice->shutup = true;
+		InputDevice->register_change_handler(this, &VRPNButtonInputDevice::HandleButtonDevice);
+	}
 }
 
 VRPNButtonInputDevice::~VRPNButtonInputDevice() {
@@ -37,7 +40,9 @@ VRPNButtonInputDevice::~VRPNButtonInputDevice() {
 }
 
 void VRPNButtonInputDevice::Update() {
-	InputDevice->mainloop();
+	if(InputDevice){
+		InputDevice->mainloop();
+	}
 }
 
 bool VRPNButtonInputDevice::ParseConfig(FConfigSection *InConfigSection) {
@@ -92,16 +97,18 @@ void VRPN_CALLBACK VRPNButtonInputDevice::HandleButtonDevice(void *userData, vrp
 
 
 
-VRPNTrackerInputDevice::VRPNTrackerInputDevice(const FString &TrackerName, const FString &TrackerAddress):
+VRPNTrackerInputDevice::VRPNTrackerInputDevice(const FString &TrackerAddress, bool bEnabled):
+InputDevice(nullptr),
 TranslationOffset(0,0,0),
 RotationOffset(EForceInit::ForceInit),
 TrackerUnitsToUE4Units(1.0f),
 FlipZAxis(false)
 {
-	UE_LOG(LogVRPNInputDevice, Log, TEXT("Createing VRPNTrackerInputDevice %s."), *TrackerName);
-	InputDevice = new vrpn_Tracker_Remote(TCHAR_TO_UTF8(*TrackerAddress));
-	//InputDevice->shutup = true;
-	InputDevice->register_change_handler(this, &VRPNTrackerInputDevice::HandleTrackerDevice);
+	if(bEnabled){
+		InputDevice = new vrpn_Tracker_Remote(TCHAR_TO_UTF8(*TrackerAddress));
+		//InputDevice->shutup = true;
+		InputDevice->register_change_handler(this, &VRPNTrackerInputDevice::HandleTrackerDevice);
+	}
 }
 
 VRPNTrackerInputDevice::~VRPNTrackerInputDevice() {
@@ -109,45 +116,47 @@ VRPNTrackerInputDevice::~VRPNTrackerInputDevice() {
 }
 
 void VRPNTrackerInputDevice::Update() {
-	InputDevice->mainloop();
-	for(auto &InputPair : TrackerMap)
-	{
-		TrackerInput &Input = InputPair.Value;
-		if(Input.TrackerDataDirty)
+	if(InputDevice){
+		InputDevice->mainloop();
+		for(auto &InputPair : TrackerMap)
 		{
-			// Before firing events, transform the tracker into the right coordinate space
-			FVector NewPosition = Input.CurrentTrackerPosition;
-			FVector NewTranslationOffset = TranslationOffset;
-			if(FlipZAxis)
+			TrackerInput &Input = InputPair.Value;
+			if(Input.TrackerDataDirty)
 			{
-				NewPosition.Z = -NewPosition.Z;
-				NewTranslationOffset.Z = -NewTranslationOffset.Z;
+				// Before firing events, transform the tracker into the right coordinate space
+				FVector NewPosition = Input.CurrentTrackerPosition;
+				FVector NewTranslationOffset = TranslationOffset;
+				if(FlipZAxis)
+				{
+					NewPosition.Z = -NewPosition.Z;
+					NewTranslationOffset.Z = -NewTranslationOffset.Z;
+				}
+				NewPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units);
+				FQuat NewRotation = Input.CurrentTrackerRotation;
+				if(FlipZAxis)
+				{
+					NewRotation.X = -NewRotation.X;
+					NewRotation.Y = -NewRotation.Y;
+				}
+				NewRotation = RotationOffset*NewRotation;
+				FRotator NewRotator = NewRotation.Rotator();
+
+				FAnalogInputEvent AnalogInputEventX(Input.MotionXKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.X);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventX);
+				FAnalogInputEvent AnalogInputEventY(Input.MotionYKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.Y);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventY);
+				FAnalogInputEvent AnalogInputEventZ(Input.MotionZKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.Z);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventZ);
+
+				FAnalogInputEvent AnalogInputEventRotX(Input.RotationYawKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Yaw);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotX);
+				FAnalogInputEvent AnalogInputEventRotY(Input.RotationPitchKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Pitch);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotY);
+				FAnalogInputEvent AnalogInputEventRotZ(Input.RotationRollKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Roll);
+				FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotZ);
+
+				Input.TrackerDataDirty = false;
 			}
-			NewPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units);
-			FQuat NewRotation = Input.CurrentTrackerRotation;
-			if(FlipZAxis)
-			{
-				NewRotation.X = -NewRotation.X;
-				NewRotation.Y = -NewRotation.Y;
-			}
-			NewRotation = RotationOffset*NewRotation;
-			FRotator NewRotator = NewRotation.Rotator();
-
-			FAnalogInputEvent AnalogInputEventX(Input.MotionXKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.X);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventX);
-			FAnalogInputEvent AnalogInputEventY(Input.MotionYKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.Y);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventY);
-			FAnalogInputEvent AnalogInputEventZ(Input.MotionZKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.Z);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventZ);
-
-			FAnalogInputEvent AnalogInputEventRotX(Input.RotationYawKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Yaw);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotX);
-			FAnalogInputEvent AnalogInputEventRotY(Input.RotationPitchKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Pitch);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotY);
-			FAnalogInputEvent AnalogInputEventRotZ(Input.RotationRollKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewRotator.Roll);
-			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogInputEventRotZ);
-
-			Input.TrackerDataDirty = false;
 		}
 	}
 }

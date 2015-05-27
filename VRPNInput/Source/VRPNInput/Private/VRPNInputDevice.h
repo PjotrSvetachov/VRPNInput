@@ -49,7 +49,9 @@ public:
 class VRPNButtonInputDevice : public IVRPNInputDevice
 {
 public:
-	VRPNButtonInputDevice(const FString &TrackerName, const FString &TrackerAddress);
+	/* If a device is not enabled it will still add the blueprints functions but it does not establish a VRPN connection.
+	*/
+	VRPNButtonInputDevice(const FString &TrackerAddress, bool bEnabled = true);
 	virtual ~VRPNButtonInputDevice();
 
 	void Update() override;
@@ -70,7 +72,9 @@ private:
 class VRPNTrackerInputDevice : public IVRPNInputDevice
 {
 public:
-	VRPNTrackerInputDevice(const FString &TrackerName, const FString &TrackerAddress);
+	/* If a device is not enabled it will still add the blueprints functions but it does not establish a VRPN connection.
+	 */
+	VRPNTrackerInputDevice(const FString &TrackerAddress, bool bEnabled = true);
 	virtual ~VRPNTrackerInputDevice();
 
 	void Update() override;

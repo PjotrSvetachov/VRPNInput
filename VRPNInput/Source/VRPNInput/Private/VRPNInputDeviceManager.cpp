@@ -58,6 +58,11 @@ public:
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find VRPN configuration file: %s."), *ConfigFile);
 		}
 
+		FString EnabledDevices;
+		TArray<FString> EnabledDevicesArray;
+		FParse::Value(FCommandLine::Get(), TEXT("VRPNEnabledDevices="), EnabledDevices);
+		EnabledDevices.ParseIntoArray(&EnabledDevicesArray, TEXT(","), false);
+		
 		TArray<FString> SectionNames;
 		GConfig->GetSectionNames(ConfigFile,SectionNames);
 		for(FString &SectionNameString : SectionNames)
@@ -80,12 +85,15 @@ public:
 			}
 
 			IVRPNInputDevice *InputDevice = nullptr;
+			bool bEnabled = EnabledDevicesArray.Num() == 0 ||EnabledDevicesArray.Contains(SectionNameString);
 			if(TrackerTypeString->Compare("Tracker") == 0)
 			{
-				InputDevice = new VRPNTrackerInputDevice(SectionNameString, *TrackerAdressString);
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNTrackerInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
+				InputDevice = new VRPNTrackerInputDevice(*TrackerAdressString, bEnabled);
 			} else if(TrackerTypeString->Compare("Button") == 0)
 			{
-				InputDevice = new VRPNButtonInputDevice(SectionNameString, *TrackerAdressString);
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNButtonInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
+				InputDevice = new VRPNButtonInputDevice(*TrackerAdressString, bEnabled);
 			} else
 			{
 				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker or Button but found %s in section %s. Skipping this section."), *ConfigFile, *(*TrackerTypeString), *SectionNameString);
