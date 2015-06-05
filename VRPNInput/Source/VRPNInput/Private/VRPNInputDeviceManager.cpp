@@ -61,7 +61,7 @@ public:
 		FString EnabledDevices;
 		TArray<FString> EnabledDevicesArray;
 		FParse::Value(FCommandLine::Get(), TEXT("VRPNEnabledDevices="), EnabledDevices);
-		EnabledDevices.ParseIntoArray(&EnabledDevicesArray, TEXT(","), false);
+		EnabledDevices.ParseIntoArray(EnabledDevicesArray, TEXT(","), false);
 		
 		TArray<FString> SectionNames;
 		GConfig->GetSectionNames(ConfigFile,SectionNames);
