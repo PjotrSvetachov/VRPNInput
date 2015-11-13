@@ -25,7 +25,10 @@ After you build or downloaded the files you need to place the files in the right
 # Using the plugin
 The plugin takes a .ini file that describes what VRPN devices there are and how to map them to the input.
 The reason we use .ini files is that this way we can switch or remap VRPN devices without repackaging the project.
-You will need to start both the editor and the package game with a -VRPNConfigFile="absolute_path_to_.ini" command line option.
+The default place where the editor will look for the configuration file is the Engine\Plugins\HPCV\VRPNInput\Config\VRPNConfig.ini (this is the editor directory, not the project directory.)
+The default place where the game will look for the configuration file is the Engine\Plugins\HPCV\VRPNInput\Config\VRPNConfig.ini
+If you want to overwrite this you will need to start both the editor and the packaged game with a -VRPNConfigFile="absolute_path_to_.ini" command line option.
+Note that if you package the game the .ini file is not yet copied over so you need to do it manually or overwrite it with a command line.
 If you forget to start the package and forget to specify the .ini file you will get lots of warnings in your log file but the game will run.
 If you open a project and forget to specify the option you will get a lot of warnings when trying to compile blueprints that make use of events coming from VRPN devices.
 
@@ -36,7 +39,7 @@ All the VRPN library error messages are written to the command line.
 * Add more VRPN devices
 * Add a way to bind custom c++ functions. (first check if UE4 doesn't have that option already for the event system)
 * The plugin needs to be pointed to a .ini file right now (both in editor and in packaged game). This happends with a command line option and is not ideal.
- * Have a standard .ini location and have the command line option only as override.
+ * Have a standard .ini location and have the command line option only as override. (done, but the package scripts don't copy it yet, need to figure out how to do that.)
  * Carry changed to the .ini file with the packaged game. Right now you need to manually copy the .ini file and use the command line option to point to it.
  * During packaging some scripts don't load the .ini (or the plugin?) and produce warnings about blueprint events not found.
  * Have a tool in the editor to edit the VRPN devices.

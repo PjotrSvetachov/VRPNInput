@@ -49,13 +49,13 @@ public:
 		FString ConfigFile;
 		if(!FParse::Value(FCommandLine::Get(), TEXT("VRPNConfigFile="), ConfigFile))
 		{
-			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find VRPN configuration file: %s."), *ConfigFile);
-			return;
+			UE_LOG(LogVRPNInputDevice, Warning, TEXT("No VRPNConfigFile= parameter, trying to find file in plugin directory."));
+			ConfigFile = FPaths::EnginePluginsDir() / TEXT("HPCV/VRPNInput/Config/VRPNConfig.ini");
 		}
 		if(!FPaths::FileExists(ConfigFile))
 		{
-			return;
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find VRPN configuration file: %s."), *ConfigFile);
+			return;
 		}
 
 		FString EnabledDevices;
