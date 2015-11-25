@@ -25,9 +25,16 @@ SOFTWARE.
 #include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDevice.h"
 
+namespace {
+	// This is to prevent vrpn mainloop to be executed by both the renderhread and the gamethread
+	FCriticalSection CritSect;
+
+}
+
 VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerAddress, bool bEnabled):
 InputDevice(nullptr)
 {
+	KeyPressStack.Reserve(16);
 	if(bEnabled){
 		InputDevice = new vrpn_Button_Remote(TCHAR_TO_UTF8(*TrackerAddress));
 		//InputDevice->shutup = true;
@@ -41,7 +48,33 @@ VRPNButtonInputDevice::~VRPNButtonInputDevice() {
 
 void VRPNButtonInputDevice::Update() {
 	if(InputDevice){
-		InputDevice->mainloop();
+		{
+			FScopeLock ScopeLock(&CritSect);
+			InputDevice->mainloop();
+		}
+		while(KeyPressStack.Num() > 0)
+		{
+			KeyEventPair ButtonEvent = KeyPressStack.Pop(/*bAllowShrinking=*/false);
+			// process the button presses
+			const FKey* Key = ButtonMap.Find(ButtonEvent.Button);
+			if(Key == nullptr)
+			{
+				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find button with id %i."), ButtonEvent.Button);
+				return;
+			}
+
+
+			if(ButtonEvent.State == 1)
+			{
+				FKeyEvent KeyEvent(*Key, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0);
+				FSlateApplication::Get().ProcessKeyDownEvent(KeyEvent);
+			}
+			else
+			{
+				FKeyEvent KeyEvent(*Key, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0);
+				FSlateApplication::Get().ProcessKeyUpEvent(KeyEvent);
+			}
+		}
 	}
 }
 
@@ -76,23 +109,7 @@ bool VRPNButtonInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 
 void VRPN_CALLBACK VRPNButtonInputDevice::HandleButtonDevice(void *userData, vrpn_BUTTONCB const b) {
 	VRPNButtonInputDevice &ButtonDevice = *reinterpret_cast<VRPNButtonInputDevice*>(userData);
-	const FKey* Key = ButtonDevice.ButtonMap.Find(b.button);
-	if(Key == nullptr)
-	{
-		UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find button with id %i."), b.button);
-		return;
-	}
-
-
-	if(b.state == 1)
-	{
-		FKeyEvent KeyEvent(*Key, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0);
-		FSlateApplication::Get().ProcessKeyDownEvent(KeyEvent);
-	} else
-	{
-		FKeyEvent KeyEvent(*Key, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0);
-		FSlateApplication::Get().ProcessKeyUpEvent(KeyEvent);
-	}
+	ButtonDevice.KeyPressStack.Push({b.button,b.state});
 }
 
 
@@ -117,28 +134,21 @@ VRPNTrackerInputDevice::~VRPNTrackerInputDevice() {
 
 void VRPNTrackerInputDevice::Update() {
 	if(InputDevice){
-		InputDevice->mainloop();
+		{
+			FScopeLock ScopeLock(&CritSect);
+			InputDevice->mainloop();
+		}
 		for(auto &InputPair : TrackerMap)
 		{
 			TrackerInput &Input = InputPair.Value;
 			if(Input.TrackerDataDirty)
 			{
 				// Before firing events, transform the tracker into the right coordinate space
-				FVector NewPosition = Input.CurrentTrackerPosition;
-				FVector NewTranslationOffset = TranslationOffset;
-				if(FlipZAxis)
-				{
-					NewPosition.Z = -NewPosition.Z;
-					NewTranslationOffset.Z = -NewTranslationOffset.Z;
-				}
-				NewPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units);
-				FQuat NewRotation = Input.CurrentTrackerRotation;
-				if(FlipZAxis)
-				{
-					NewRotation.X = -NewRotation.X;
-					NewRotation.Y = -NewRotation.Y;
-				}
-				NewRotation = RotationOffset*NewRotation;
+
+				FVector NewPosition;
+				FQuat NewRotation;
+				TransformCoordinates(Input, NewPosition, NewRotation);
+
 				FRotator NewRotator = NewRotation.Rotator();
 
 				FAnalogInputEvent AnalogInputEventX(Input.MotionXKey, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, NewPosition.X);
@@ -212,6 +222,8 @@ bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 		return false;
 	}
 
+	bool bHasMotionControllers = false;
+
 	for(const FString* TrackerString: Trackers)
 	{
 		int32 TrackerId;
@@ -224,11 +236,31 @@ bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config not parse tracker. Expected: Tracker = (Id=#,Name=String,Description=String)."));
 			continue;
 		}
-		UE_LOG(LogVRPNInputDevice, Log, TEXT("Adding new tracker: [%i,%s,%s]."), TrackerId, *TrackerName, *TrackerDescription);
+		
+		// see if this is a motion controller
+		int PlayerId = -1;
+		FParse::Value(*(*TrackerString), TEXT("PlayerId="), PlayerId);
+		EControllerHand Hand = EControllerHand::Left;
+		if(PlayerId >= 0)
+		{
+			UE_LOG(LogVRPNInputDevice, Log, TEXT("Found motion controller."));
+			bHasMotionControllers = true;
+			FString HandString;
+			if(FParse::Value(*(*TrackerString), TEXT("Hand="), HandString))
+			{
+				if(HandString.Equals("Right"))
+				{
+					Hand = EControllerHand::Right;
+				}
+			}
+		}
+
+		
+		UE_LOG(LogVRPNInputDevice, Log, TEXT("Adding new tracker: [%i,%s,%s,%i]."), TrackerId, *TrackerName, *TrackerDescription, PlayerId);
 		
 		const TrackerInput &Input = TrackerMap.Add(TrackerId, {FKey(*(TrackerName + "MotionX")), FKey(*(TrackerName + "MotionY")), FKey(*(TrackerName + "MotionZ")),
 													FKey(*(TrackerName + "RotationYaw")), FKey(*(TrackerName + "RotationPitch")), FKey(*(TrackerName + "RotationRoll")),
-													FVector(0), FQuat(EForceInit::ForceInit), false});
+													FVector(0), FQuat(EForceInit::ForceInit), PlayerId, Hand,false});
 
 		// Translation
 		EKeys::AddKey(FKeyDetails(Input.MotionXKey, FText::FromString(TrackerName + " X position"), FKeyDetails::FloatAxis));
@@ -241,8 +273,59 @@ bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 		EKeys::AddKey(FKeyDetails(Input.RotationRollKey, FText::FromString(TrackerName + " Roll"), FKeyDetails::FloatAxis));
 	}
 
+	if(bHasMotionControllers)
+	{
+		UE_LOG(LogVRPNInputDevice, Log, TEXT("Adding this to the motion controller devices."));
+		IModularFeatures::Get().RegisterModularFeature(GetModularFeatureName(), this);
+	}
+
 
 	return true;
+}
+
+void VRPNTrackerInputDevice::TransformCoordinates(const TrackerInput &Tracker, FVector &OutPosition, FQuat &OutRotation) const
+{
+	FVector NewPosition = Tracker.CurrentTrackerPosition;
+	FVector NewTranslationOffset = TranslationOffset;
+	if(FlipZAxis)
+	{
+		NewPosition.Z = -NewPosition.Z;
+		NewTranslationOffset.Z = -NewTranslationOffset.Z;
+	}
+	OutPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units);
+	FQuat NewRotation = Tracker.CurrentTrackerRotation;
+	if(FlipZAxis)
+	{
+		NewRotation.X = -NewRotation.X;
+		NewRotation.Y = -NewRotation.Y;
+	}
+	OutRotation = RotationOffset*NewRotation;
+}
+
+bool VRPNTrackerInputDevice::GetControllerOrientationAndPosition(const int32 ControllerIndex, const EControllerHand DeviceHand, FRotator& OutOrientation, FVector& OutPosition) const
+{
+	for(auto &InputPair : TrackerMap)
+	{
+		const TrackerInput &Tracker = InputPair.Value;
+		if(Tracker.PlayerIndex == ControllerIndex && Tracker.Hand == DeviceHand)
+		{
+			if(InputDevice)
+			{
+				FScopeLock ScopeLock(&CritSect);
+				InputDevice->mainloop();
+			}
+
+			FVector NewPosition;
+			FQuat NewRotation;
+			TransformCoordinates(Tracker, NewPosition, NewRotation);
+
+			OutOrientation = NewRotation.Rotator();
+			OutPosition = NewPosition;
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void VRPN_CALLBACK VRPNTrackerInputDevice::HandleTrackerDevice(void *userData, vrpn_TRACKERCB const tr) {
