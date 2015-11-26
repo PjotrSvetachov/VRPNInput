@@ -3,7 +3,9 @@ This is a Unreal Engine 4 plugin that adds VRPN input to blueprints. We use it i
 As we only have VRPN Trackers and Buttons this plugin only supports those devices for now.
 
 # Installation
-You will need the VRPN library to compile this plugin. You can build it yourself or download it from the Github repository.
+This plugin should be installed in the Plugins/HPCV/VRPNInput (so the VRPNInput.uplugin should be in that directory).
+
+You will also need the VRPN library to compile this plugin. You can build it yourself or download it from the Github repository.
 These are the steps I used to build the VRPN library for Windows and Linux.
 
 1. Get the VRPN source at https://github.com/vrpn/vrpn
@@ -25,22 +27,20 @@ After you build or downloaded the files you need to place the files in the right
 # Using the plugin
 The plugin takes a .ini file that describes what VRPN devices there are and how to map them to the input.
 The reason we use .ini files is that this way we can switch or remap VRPN devices without repackaging the project.
-The default place where the editor will look for the configuration file is the Engine\Plugins\HPCV\VRPNInput\Config\VRPNConfig.ini (this is the editor directory, not the project directory.)
-The default place where the game will look for the configuration file is the Engine\Plugins\HPCV\VRPNInput\Config\VRPNConfig.ini
-If you want to overwrite this you will need to start both the editor and the packaged game with a -VRPNConfigFile="absolute_path_to_.ini" command line option.
-Note that if you package the game the .ini file is not yet copied over so you need to do it manually or overwrite it with a command line.
-If you forget to start the package and forget to specify the .ini file you will get lots of warnings in your log file but the game will run.
+Both the game and editor have default places to look for the .ini files. But you can also overwrite them with the -VRPNConfigFile="absolute_path_to_.ini" command line.
+The default places where the editor will look for the configuration file are:
+* First in the project directory: Config/VRPNConfig.ini
+* If not found, then in the editor directory:  Engine/Plugins/HPCV/VRPNInput/Config/VRPNConfig.ini (this file is also in the github repo so if you install the plugin in Plugins/HPCV/VRPNInput the file should be there).
+When packging the game it seems that the packaging system will package the .ini files from the project's Config directory in the .pak file. This is where the game will first look.
+If nothing is found it will look in the Engine/Plugins/HPCV/VRPNInput/Config/VRPNConfig.ini directory.
+If you forget to start the packaged game and it can't find the .ini file you will get lots of warnings in your log file but the game will run.
 If you open a project and forget to specify the option you will get a lot of warnings when trying to compile blueprints that make use of events coming from VRPN devices.
-
-The plugin is very verbose, if something is not working search the log file for the phrase LogVRPNInputDevice to see what the problem is.
-All the VRPN library error messages are written to the command line.
+The plugin will say which file it will load and where it searches for the file, so check the log if something does not work. It will also list the trackers found in the .ini file.
 
 # Todo:
 * Add more VRPN devices
 * Add a way to bind custom c++ functions. (first check if UE4 doesn't have that option already for the event system)
 * The plugin needs to be pointed to a .ini file right now (both in editor and in packaged game). This happends with a command line option and is not ideal.
- * Have a standard .ini location and have the command line option only as override. (done, but the package scripts don't copy it yet, need to figure out how to do that.)
- * Carry changed to the .ini file with the packaged game. Right now you need to manually copy the .ini file and use the command line option to point to it.
  * During packaging some scripts don't load the .ini (or the plugin?) and produce warnings about blueprint events not found.
  * Have a tool in the editor to edit the VRPN devices.
-* Error messages are now written to the command line, intercept them and write them to the UE4 log.
+* VRPN error messages are now written to the command line, intercept them and write them to the UE4 log.
