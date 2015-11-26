@@ -31,6 +31,7 @@ Both the game and editor have default places to look for the .ini files. But you
 The default places where the editor will look for the configuration file are:
 * First in the project directory: Config/VRPNConfig.ini
 * If not found, then in the editor directory:  Engine/Plugins/HPCV/VRPNInput/Config/VRPNConfig.ini (this file is also in the github repo so if you install the plugin in Plugins/HPCV/VRPNInput the file should be there).
+
 When packging the game it seems that the packaging system will package the .ini files from the project's Config directory in the .pak file. This is where the game will first look.
 If nothing is found it will look in the Engine/Plugins/HPCV/VRPNInput/Config/VRPNConfig.ini directory.
 If you forget to start the packaged game and it can't find the .ini file you will get lots of warnings in your log file but the game will run.
