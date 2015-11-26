@@ -31,12 +31,19 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-			PrivateDependencyModuleNames.AddRange(
-				new string[]
-				{
+            PrivateIncludePathModuleNames.AddRange(
+                new string[]
+                {
+                    "HeadMountedDisplay"	// For IMotionController.h
+				}
+                );
+
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+                {
 					// ... add private dependencies that you statically link with here ...
 				}
-				);
+                );
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[]
@@ -45,6 +52,12 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-		}
+            // Add the standard configuration as a dependancy
+            if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
+            {
+                string EngineConfigFile = "$(EngineDir)/Plugins/HPCV/VRPNInput/Config/VRPNConfig.ini";
+                RuntimeDependencies.Add(new RuntimeDependency(EngineConfigFile));
+            }
+        }
 	}
 }
