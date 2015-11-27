@@ -49,10 +49,8 @@ public:
 		FString ConfigFile;
 		if(!FParse::Value(FCommandLine::Get(), TEXT("VRPNConfigFile="), ConfigFile))
 		{
-			FString tmp1, tmp2;
-			UE_LOG(LogVRPNInputDevice, Warning, TEXT("No VRPNConfigFile= parameter, trying to find file in plugin directory of the project."));
-			FPaths::Split(FPaths::GetProjectFilePath(), ConfigFile, tmp1, tmp2);// / TEXT("HPCV/VRPNInput/Config/VRPNConfig.ini");
-			ConfigFile = ConfigFile / TEXT("Config/VRPNConfig.ini");
+			UE_LOG(LogVRPNInputDevice, Warning, TEXT("No VRPNConfigFile= parameter, trying to find file in config directory of the project."));
+			ConfigFile = FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Config/VRPNConfig.ini");
 			if(!FPaths::FileExists(ConfigFile))
 			{
 				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find VRPN configuration file: %s. Trying engine plugin file path."), *ConfigFile);
