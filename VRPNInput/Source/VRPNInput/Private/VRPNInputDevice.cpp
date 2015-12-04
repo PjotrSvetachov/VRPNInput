@@ -292,7 +292,24 @@ void VRPNTrackerInputDevice::TransformCoordinates(const TrackerInput &Tracker, F
 		NewPosition.Z = -NewPosition.Z;
 		NewTranslationOffset.Z = -NewTranslationOffset.Z;
 	}
-	OutPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units);
+
+	static UWorld* OurWorld = nullptr;
+	if(OurWorld == nullptr) {
+		for(const FWorldContext& Context : GEngine->GetWorldContexts())
+		{
+			if(Context.WorldType == EWorldType::Game || Context.WorldType == EWorldType::Editor)
+			{
+				OurWorld = Context.World();
+				break;
+			}
+		}
+	}
+
+	float WorldToScale = 1.0f;
+	if(OurWorld && OurWorld->GetWorldSettings()) {
+		WorldToScale = OurWorld->GetWorldSettings()->WorldToMeters * 0.01f;
+	}
+	OutPosition = RotationOffset.RotateVector((NewPosition + NewTranslationOffset)*TrackerUnitsToUE4Units*WorldToScale);
 	FQuat NewRotation = Tracker.CurrentTrackerRotation;
 	if(FlipZAxis)
 	{

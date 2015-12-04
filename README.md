@@ -38,6 +38,11 @@ If you forget to start the packaged game and it can't find the .ini file you wil
 If you open a project and forget to specify the option you will get a lot of warnings when trying to compile blueprints that make use of events coming from VRPN devices.
 The plugin will say which file it will load and where it searches for the file, so check the log if something does not work. It will also list the trackers found in the .ini file.
 
+The plugin also honors the World To Meter parameters in the WorldSettings window of UE4. The default value is 100, at that value nothing changes. Other values will multiply the output coordinates by (WorldToMeters*0.01).
+A example here at the University of Groningen why we want such a thing:
+We use a z-space device and because it is just desktop sized we have two options. Make all the objects every small in the editor or change the WorldToMeters parameter.
+The first option does not work very good because it brings lots of limititations with lightmap generation and such. So we went for the second option.
+
 # Todo:
 * Add more VRPN devices
 * Add a way to bind custom c++ functions. (first check if UE4 doesn't have that option already for the event system)
