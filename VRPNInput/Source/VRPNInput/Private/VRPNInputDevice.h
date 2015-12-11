@@ -39,9 +39,12 @@ SOFTWARE.
 class IVRPNInputDevice
 {
 public:
+	IVRPNInputDevice(FCriticalSection& InCritSect) :CritSect(InCritSect){}
 	virtual ~IVRPNInputDevice(){};
 	virtual void Update() = 0;
 	virtual bool ParseConfig(FConfigSection *InConfigSection) = 0;
+protected:
+	FCriticalSection& CritSect;
 };
 
 /*
@@ -53,7 +56,7 @@ class VRPNButtonInputDevice : public IVRPNInputDevice
 public:
 	/* If a device is not enabled it will still add the blueprints functions but it does not establish a VRPN connection.
 	*/
-	VRPNButtonInputDevice(const FString &TrackerAddress, bool bEnabled = true);
+	VRPNButtonInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled = true);
 	virtual ~VRPNButtonInputDevice();
 
 	void Update() override;
@@ -86,7 +89,7 @@ class VRPNTrackerInputDevice : public IVRPNInputDevice, public IMotionController
 public:
 	/* If a device is not enabled it will still add the blueprints functions but it does not establish a VRPN connection.
 	 */
-	VRPNTrackerInputDevice(const FString &TrackerAddress, bool bEnabled = true);
+	VRPNTrackerInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled = true);
 	virtual ~VRPNTrackerInputDevice();
 
 	void Update() override;

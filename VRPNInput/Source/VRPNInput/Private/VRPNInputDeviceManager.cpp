@@ -35,7 +35,7 @@ SOFTWARE.
 #endif
 DEFINE_LOG_CATEGORY(LogVRPNInputDevice);
 
-class FVRPNInputPlugin : public IInputDeviceModule
+class FVRPNInputPlugin : public IVRPNInputPlugin
 {
 public:
 	/*
@@ -97,11 +97,11 @@ public:
 			if(TrackerTypeString->Compare("Tracker") == 0)
 			{
 				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNTrackerInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
-				InputDevice = new VRPNTrackerInputDevice(*TrackerAdressString, bEnabled);
+				InputDevice = new VRPNTrackerInputDevice(*TrackerAdressString, CritSect, bEnabled);
 			} else if(TrackerTypeString->Compare("Button") == 0)
 			{
 				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNButtonInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
-				InputDevice = new VRPNButtonInputDevice(*TrackerAdressString, bEnabled);
+				InputDevice = new VRPNButtonInputDevice(*TrackerAdressString, CritSect, bEnabled);
 			} else
 			{
 				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker or Button but found %s in section %s. Skipping this section."), *ConfigFile, *(*TrackerTypeString), *SectionNameString);
@@ -138,7 +138,11 @@ public:
 		DeviceManager = nullptr;
 	}
 
+	FCriticalSection& GetVRPNLock() override {
+		return CritSect;
+	}
 
+	FCriticalSection CritSect;
 	TSharedPtr< class FVRPNInputDeviceManager > DeviceManager;
 };
 

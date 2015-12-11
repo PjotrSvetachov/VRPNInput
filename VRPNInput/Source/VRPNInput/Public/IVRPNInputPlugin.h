@@ -51,4 +51,11 @@ public:
 	static inline bool IsAvailable() {
 		return FModuleManager::Get().IsModuleLoaded("VRPNInput");
 	}
+
+	/**
+	 * Get the mutex for the critical section that is used before any mainloop() call to the VRPN
+	 * VRPN seems to merge connections that are using the same address.
+	 * So if you use VRPN somewhere outside you program you might need to lock this mutex when calling mainloop.
+	 */
+	virtual FCriticalSection& GetVRPNLock() = 0;
 };

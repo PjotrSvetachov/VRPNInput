@@ -25,13 +25,8 @@ SOFTWARE.
 #include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDevice.h"
 
-namespace {
-	// This is to prevent vrpn mainloop to be executed by both the renderhread and the gamethread
-	FCriticalSection CritSect;
-
-}
-
-VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerAddress, bool bEnabled):
+VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled):
+IVRPNInputDevice(InCritSect),
 InputDevice(nullptr)
 {
 	KeyPressStack.Reserve(16);
@@ -114,7 +109,8 @@ void VRPN_CALLBACK VRPNButtonInputDevice::HandleButtonDevice(void *userData, vrp
 
 
 
-VRPNTrackerInputDevice::VRPNTrackerInputDevice(const FString &TrackerAddress, bool bEnabled):
+VRPNTrackerInputDevice::VRPNTrackerInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled):
+IVRPNInputDevice(InCritSect),
 InputDevice(nullptr),
 TranslationOffset(0,0,0),
 RotationOffset(EForceInit::ForceInit),
