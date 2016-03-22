@@ -28,10 +28,12 @@ SOFTWARE.
 	#include "AllowWindowsPlatformTypes.h"
 		#include "vrpn_Tracker.h"
 		#include "vrpn_Button.h"
+		#include "vrpn_Analog.h"
 	#include "HideWindowsPlatformTypes.h"    
 #elif PLATFORM_LINUX
 	#include "vrpn_Tracker.h"
 	#include "vrpn_Button.h"
+	#include "vrpn_Analog.h"
 #endif
 DEFINE_LOG_CATEGORY(LogVRPNInputDevice);
 
@@ -102,9 +104,14 @@ public:
 			{
 				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNButtonInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
 				InputDevice = new VRPNButtonInputDevice(*TrackerAdressString, CritSect, bEnabled);
-			} else
+			} else if (TrackerTypeString->Compare("Analog") == 0)
 			{
-				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker or Button but found %s in section %s. Skipping this section."), *ConfigFile, *(*TrackerTypeString), *SectionNameString);
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNAnalogInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
+				InputDevice = new VRPNAnalogInputDevice(*TrackerAdressString, CritSect, bEnabled);
+			}
+			else
+			{
+				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker, Button or Analog but found %s in section %s. Skipping this section."), *ConfigFile, *(*TrackerTypeString), *SectionNameString);
 				continue;
 			}
 			if(!InputDevice->ParseConfig(TrackerConfig))

@@ -30,10 +30,12 @@ SOFTWARE.
 	#include "AllowWindowsPlatformTypes.h"
 		#include "vrpn_Tracker.h"
 		#include "vrpn_Button.h"
+		#include "vrpn_Analog.h"
 	#include "HideWindowsPlatformTypes.h"    
 #elif PLATFORM_LINUX
 	#include "vrpn_Tracker.h"
 	#include "vrpn_Button.h"
+	#include "vrpn_Analog.h"
 #endif
 
 class IVRPNInputDevice
@@ -133,4 +135,26 @@ private:
 
 
 	static void VRPN_CALLBACK HandleTrackerDevice(void *userData, vrpn_TRACKERCB const tr);
+};
+
+/*Connects to a VRPN analog device.
+This contains signals, see openVibe for examples.
+*/
+class VRPNAnalogInputDevice : public IVRPNInputDevice
+{
+public : 
+	VRPNAnalogInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled = true);
+	virtual ~VRPNAnalogInputDevice();
+	void Update() override;
+	bool ParseConfig(FConfigSection *InConfigSection) override;
+private: 
+	struct ChannelInput
+	{
+		
+	};
+	vrpn_Analog_Remote *InputDevice;
+	vrpn_int32 num_channel;                 // how many channels
+	vrpn_float64 channels[vrpn_CHANNEL_MAX]; // analog values
+	TMap<int32, const FKey> ChannelMap;
+	static void VRPN_CALLBACK HandleAnalogDevice(void *userData, vrpn_ANALOGCB const tr);
 };
