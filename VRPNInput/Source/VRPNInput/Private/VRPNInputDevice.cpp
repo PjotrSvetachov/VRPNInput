@@ -25,6 +25,8 @@ SOFTWARE.
 #include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDevice.h"
 
+//--------------------------------BUTTON-----------------------------
+
 VRPNButtonInputDevice::VRPNButtonInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled):
 IVRPNInputDevice(InCritSect),
 InputDevice(nullptr)
@@ -107,7 +109,7 @@ void VRPN_CALLBACK VRPNButtonInputDevice::HandleButtonDevice(void *userData, vrp
 	ButtonDevice.KeyPressStack.Push({b.button,b.state});
 }
 
-
+//--------------------------------TRACKER-----------------------------
 
 VRPNTrackerInputDevice::VRPNTrackerInputDevice(const FString &TrackerAddress, FCriticalSection& InCritSect, bool bEnabled):
 IVRPNInputDevice(InCritSect),
@@ -364,4 +366,82 @@ void VRPN_CALLBACK VRPNTrackerInputDevice::HandleTrackerDevice(void *userData, v
 	Input->CurrentTrackerRotation.Y = tr.quat[1];
 	Input->CurrentTrackerRotation.Z = tr.quat[2];
 	Input->CurrentTrackerRotation.W = tr.quat[3];
+}
+
+//--------------------------------ANALOG-----------------------------
+
+VRPNAnalogInputDevice::VRPNAnalogInputDevice(const FString & TrackerAddress, FCriticalSection & InCritSect, bool bEnabled):
+IVRPNInputDevice(InCritSect),
+InputDevice(nullptr)
+{
+	if (bEnabled) {
+		InputDevice = new vrpn_Analog_Remote(TCHAR_TO_UTF8(*TrackerAddress));
+		//InputDevice->shutup = true;
+		InputDevice->register_change_handler(this, &VRPNAnalogInputDevice::HandleAnalogDevice);
+	}
+}
+
+VRPNAnalogInputDevice::~VRPNAnalogInputDevice(){
+	delete InputDevice;
+}
+
+void VRPNAnalogInputDevice::Update()
+{
+	if (InputDevice) {
+		{
+			FScopeLock ScopeLock(&CritSect);
+			InputDevice->mainloop();
+		}
+		for (int a = 0; a < num_channel; a = a + 1)
+		{
+			const FKey* Key = ChannelMap.Find(a);
+			if (Key == nullptr)
+			{
+				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Could not find button with id %i."), a);
+				return;
+			}
+			FAnalogInputEvent AnalogChannel(*Key, FSlateApplication::Get().GetModifierKeys(), 0, 0, 0, 0, channels[a]);
+			FSlateApplication::Get().ProcessAnalogInputEvent(AnalogChannel);
+		}
+	}
+}
+
+bool VRPNAnalogInputDevice::ParseConfig(FConfigSection * InConfigSection)
+{
+	TArray<const FString*> Channels;
+	InConfigSection->MultiFindPointer(FName(TEXT("Channel")), Channels);
+	if (Channels.Num() == 0)
+	{
+		UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config file for analog device has no channel mappings specified. Expeted field Channel."));
+		return false;
+	}
+
+	for (const FString* ChannelString : Channels)
+	{
+		int32 ChannelId;
+		FString ChannelName;
+		FString ChannelDescription;
+		if (!FParse::Value(*(*ChannelString), TEXT("Id="), ChannelId) ||
+			!FParse::Value(*(*ChannelString), TEXT("Name="), ChannelName) ||
+			!FParse::Value(*(*ChannelString), TEXT("Description="), ChannelDescription))
+		{
+			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config not parse channel. Expected: Channel = (Id=#,Name=String,Description=String)."));
+			continue;
+		}
+		// While NewKey is only valid for this iteration it will be copied in FKeyDetails below
+		const FKey &NewKey = ChannelMap.Add(ChannelId, FKey(*ChannelName));
+		EKeys::AddKey(FKeyDetails(NewKey, FText::FromString(ChannelDescription), FKeyDetails::FloatAxis));
+	}
+
+	return ChannelMap.Num() > 0;
+}
+
+void VRPN_CALLBACK VRPNAnalogInputDevice::HandleAnalogDevice(void * userData, vrpn_ANALOGCB const an)
+{
+	VRPNAnalogInputDevice &AnalogDevice = *reinterpret_cast<VRPNAnalogInputDevice*>(userData);
+	AnalogDevice.num_channel = an.num_channel;
+	for (int a = 0; a < AnalogDevice.num_channel; a = a + 1)
+	{
+		AnalogDevice.channels[a] = an.channel[a];
+	}
 }
