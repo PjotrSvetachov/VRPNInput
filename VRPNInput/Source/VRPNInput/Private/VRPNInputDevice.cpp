@@ -343,6 +343,11 @@ bool VRPNTrackerInputDevice::GetControllerOrientationAndPosition(const int32 Con
 	return false;
 }
 
+// for now always return tracked, need to see later if we can return better information
+ETrackingStatus VRPNTrackerInputDevice::GetControllerTrackingStatus(const int32 ControllerIndex, const EControllerHand DeviceHand) const {
+	return ETrackingStatus::Tracked;
+}
+
 void VRPN_CALLBACK VRPNTrackerInputDevice::HandleTrackerDevice(void *userData, vrpn_TRACKERCB const tr) {
 	VRPNTrackerInputDevice &TrackerDevice = *reinterpret_cast<VRPNTrackerInputDevice*>(userData);
 	TrackerInput *Input = TrackerDevice.TrackerMap.Find(tr.sensor);
