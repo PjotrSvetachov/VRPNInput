@@ -80,38 +80,40 @@ public:
 			// Tracker name is the section name itself
 			FConfigSection* TrackerConfig = GConfig->GetSectionPrivate(*SectionNameString, false, true, ConfigFile);
 
-			FString *TrackerTypeString = TrackerConfig->Find(FName(TEXT("Type")));
-			if(TrackerTypeString == nullptr)
+			FConfigValue *TrackerTypeConfigValue = TrackerConfig->Find(FName(TEXT("Type")));
+			if(TrackerTypeConfigValue == nullptr)
 			{
 				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: expected to find Type of type String in section [%s]. Skipping this section."), *ConfigFile, *SectionNameString);
 				continue;
 			}
+			const FString &TrackerTypeString = TrackerTypeConfigValue->GetValue();
 
-			FString *TrackerAdressString = TrackerConfig->Find(FName(TEXT("Address")));
-			if(TrackerAdressString == nullptr)
+			FConfigValue *TrackerAdressConfigValue = TrackerConfig->Find(FName(TEXT("Address")));
+			if(TrackerAdressConfigValue == nullptr)
 			{
 				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: expected to find Address of type String in section [%s]. Skipping this section."), *ConfigFile, *SectionNameString);
 				continue;
 			}
+			const FString &TrackerAdressString = TrackerAdressConfigValue->GetValue();
 
 			IVRPNInputDevice *InputDevice = nullptr;
 			bool bEnabled = EnabledDevicesArray.Num() == 0 ||EnabledDevicesArray.Contains(SectionNameString);
-			if(TrackerTypeString->Compare("Tracker") == 0)
+			if(TrackerTypeString.Compare("Tracker") == 0)
 			{
-				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNTrackerInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
-				InputDevice = new VRPNTrackerInputDevice(*TrackerAdressString, CritSect, bEnabled);
-			} else if(TrackerTypeString->Compare("Button") == 0)
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNTrackerInputDevice %s on adress %s."), *SectionNameString, *TrackerAdressString);
+				InputDevice = new VRPNTrackerInputDevice(TrackerAdressString, CritSect, bEnabled);
+			} else if(TrackerTypeString.Compare("Button") == 0)
 			{
-				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNButtonInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
-				InputDevice = new VRPNButtonInputDevice(*TrackerAdressString, CritSect, bEnabled);
-			} else if (TrackerTypeString->Compare("Analog") == 0)
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNButtonInputDevice %s on adress %s."), *SectionNameString, *TrackerAdressString);
+				InputDevice = new VRPNButtonInputDevice(TrackerAdressString, CritSect, bEnabled);
+			} else if (TrackerTypeString.Compare("Analog") == 0)
 			{
-				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNAnalogInputDevice %s on adress %s."), *SectionNameString, *(*TrackerAdressString));
-				InputDevice = new VRPNAnalogInputDevice(*TrackerAdressString, CritSect, bEnabled);
+				UE_LOG(LogVRPNInputDevice, Log, TEXT("Creating VRPNAnalogInputDevice %s on adress %s."), *SectionNameString, *TrackerAdressString);
+				InputDevice = new VRPNAnalogInputDevice(TrackerAdressString, CritSect, bEnabled);
 			}
 			else
 			{
-				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker, Button or Analog but found %s in section %s. Skipping this section."), *ConfigFile, *(*TrackerTypeString), *SectionNameString);
+				UE_LOG(LogVRPNInputDevice, Warning, TEXT("Tracker config file %s: Type should be Tracker, Button or Analog but found %s in section %s. Skipping this section."), *ConfigFile, *TrackerTypeString, *SectionNameString);
 				continue;
 			}
 			if(!InputDevice->ParseConfig(TrackerConfig))

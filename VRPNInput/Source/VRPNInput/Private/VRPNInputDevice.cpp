@@ -76,7 +76,7 @@ void VRPNButtonInputDevice::Update() {
 }
 
 bool VRPNButtonInputDevice::ParseConfig(FConfigSection *InConfigSection) {
-	TArray<const FString*> Buttons;
+	TArray<const FConfigValue*> Buttons;
 	InConfigSection->MultiFindPointer(FName(TEXT("Button")), Buttons);
 	if(Buttons.Num() == 0)
 	{
@@ -84,14 +84,14 @@ bool VRPNButtonInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 		return false;
 	}
 	
-	for(const FString* ButtonString: Buttons)
+	for(const FConfigValue* ButtonString: Buttons)
 	{
 		int32 ButtonId;
 		FString ButtonName;
 		FString ButtonDescription;
-		if(!FParse::Value(*(*ButtonString), TEXT("Id="), ButtonId) ||
-		   !FParse::Value(*(*ButtonString), TEXT("Name="), ButtonName) ||
-		   !FParse::Value(*(*ButtonString), TEXT("Description="), ButtonDescription))
+		if(!FParse::Value(*ButtonString->GetValue(), TEXT("Id="), ButtonId) ||
+		   !FParse::Value(*ButtonString->GetValue(), TEXT("Name="), ButtonName) ||
+		   !FParse::Value(*ButtonString->GetValue(), TEXT("Description="), ButtonDescription))
 		{
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config not parse button. Expected: Button = (Id=#,Name=String,Description=String)."));
 			continue;
@@ -170,49 +170,58 @@ void VRPNTrackerInputDevice::Update() {
 }
 
 bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
-	const FString* RotationOffsetString = InConfigSection->Find(FName(TEXT("RotationOffset")));
-	
-	FVector RotationOffsetVector;
-	float RotationOffsetAngleDegrees;
-	if(RotationOffsetString == nullptr || !RotationOffsetVector.InitFromString(*RotationOffsetString) || !FParse::Value(*(*RotationOffsetString), TEXT("Angle="), RotationOffsetAngleDegrees))
+	FConfigValue *RotationOffsetConfigValue = InConfigSection->Find(FName(TEXT("RotationOffset")));
+	RotationOffset = FQuat::Identity;
+	if(RotationOffsetConfigValue)
+	{
+		const FString &RotationOffsetString = RotationOffsetConfigValue->GetValue();
+
+		FVector RotationOffsetVector;
+		float RotationOffsetAngleDegrees;
+		if(!RotationOffsetVector.InitFromString(RotationOffsetString) || !FParse::Value(*RotationOffsetString, TEXT("Angle="), RotationOffsetAngleDegrees))
+		{
+			UE_LOG(LogVRPNInputDevice, Log, TEXT("Expected RotationOffsetAxis of type FVector and RotationOffsetAnlge of type Float when parsing tracker device. Rotation offset will be the indenty transform."));
+		}
+		else
+		{
+			RotationOffsetVector.Normalize();
+			RotationOffset = FQuat(RotationOffsetVector, FMath::DegreesToRadians(RotationOffsetAngleDegrees));
+			RotationOffset.Normalize();
+		}
+	}
+	else
 	{
 		UE_LOG(LogVRPNInputDevice, Log, TEXT("Expected RotationOffsetAxis of type FVector and RotationOffsetAnlge of type Float when parsing tracker device. Rotation offset will be the indenty transform."));
-		RotationOffset = FQuat::Identity;
-	} else
-	{
-		RotationOffsetVector.Normalize();
-		RotationOffset = FQuat(RotationOffsetVector, FMath::DegreesToRadians(RotationOffsetAngleDegrees));
-		RotationOffset.Normalize();
 	}
 
-	const FString* PositioOffsetString = InConfigSection->Find(FName(TEXT("PositionOffset")));
-	if(PositioOffsetString == nullptr || !TranslationOffset.InitFromString(*PositioOffsetString))
+	FConfigValue *PositioOffsetConfigValue = InConfigSection->Find(FName(TEXT("PositionOffset")));
+	if(PositioOffsetConfigValue == nullptr || !TranslationOffset.InitFromString(PositioOffsetConfigValue->GetValue()))
 	{
 		UE_LOG(LogVRPNInputDevice, Log, TEXT("Expected PositionOffset of type FVector (in device coordinates). Will use default of (0,0,0)."));
 		TranslationOffset.Set(0, 0, 0);
 	}
 
-	FString *TrackerUnitsToUE4UnitsText = InConfigSection->Find(FName(TEXT("TrackerUnitsToUE4Units")));
-	if(TrackerUnitsToUE4UnitsText == nullptr)
+	FConfigValue *TrackerUnitsToUE4UnitsConfigValue = InConfigSection->Find(FName(TEXT("TrackerUnitsToUE4Units")));
+	if(TrackerUnitsToUE4UnitsConfigValue == nullptr)
 	{
 		UE_LOG(LogVRPNInputDevice, Warning, TEXT("Expected to find TrackerUnitsToUE4UnitsText of type Float. Using default of 1.0f"));
 		TrackerUnitsToUE4Units = 1.0f;
 	} else
 	{
-		TrackerUnitsToUE4Units = FCString::Atof(*(*TrackerUnitsToUE4UnitsText));
+		TrackerUnitsToUE4Units = FCString::Atof(*TrackerUnitsToUE4UnitsConfigValue->GetValue());
 	}
 
-	FString *FlipZAxisText = InConfigSection->Find(FName(TEXT("FlipZAxis")));
-	if(FlipZAxisText == nullptr)
+	FConfigValue *FlipZAxisConfigValue = InConfigSection->Find(FName(TEXT("FlipZAxis")));
+	if(FlipZAxisConfigValue == nullptr)
 	{
 		UE_LOG(LogVRPNInputDevice, Warning, TEXT("Expected to find FlipZAxis of type Boolean. Using default of false."));
 		FlipZAxis = false;
 	} else
 	{
-		FlipZAxis = FCString::ToBool(*(*FlipZAxisText));
+		FlipZAxis = FCString::ToBool(*InConfigSection->Find(FName(TEXT("FlipZAxis")))->GetValue());
 	}
 
-	TArray<const FString*> Trackers;
+	TArray<const FConfigValue*> Trackers;
 	InConfigSection->MultiFindPointer(FName(TEXT("Tracker")), Trackers);
 	if(Trackers.Num() == 0)
 	{
@@ -222,14 +231,14 @@ bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 
 	bool bHasMotionControllers = false;
 
-	for(const FString* TrackerString: Trackers)
+	for(const FConfigValue* TrackerString: Trackers)
 	{
 		int32 TrackerId;
 		FString TrackerName;
 		FString TrackerDescription;
-		if(!FParse::Value(*(*TrackerString), TEXT("Id="), TrackerId) ||
-		   !FParse::Value(*(*TrackerString), TEXT("Name="), TrackerName) ||
-		   !FParse::Value(*(*TrackerString), TEXT("Description="), TrackerDescription))
+		if(!FParse::Value(*TrackerString->GetValue(), TEXT("Id="), TrackerId) ||
+		   !FParse::Value(*TrackerString->GetValue(), TEXT("Name="), TrackerName) ||
+		   !FParse::Value(*TrackerString->GetValue(), TEXT("Description="), TrackerDescription))
 		{
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config not parse tracker. Expected: Tracker = (Id=#,Name=String,Description=String)."));
 			continue;
@@ -237,14 +246,14 @@ bool VRPNTrackerInputDevice::ParseConfig(FConfigSection *InConfigSection) {
 		
 		// see if this is a motion controller
 		int PlayerId = -1;
-		FParse::Value(*(*TrackerString), TEXT("PlayerId="), PlayerId);
+		FParse::Value(*TrackerString->GetValue(), TEXT("PlayerId="), PlayerId);
 		EControllerHand Hand = EControllerHand::Left;
 		if(PlayerId >= 0)
 		{
 			UE_LOG(LogVRPNInputDevice, Log, TEXT("Found motion controller."));
 			bHasMotionControllers = true;
 			FString HandString;
-			if(FParse::Value(*(*TrackerString), TEXT("Hand="), HandString))
+			if(FParse::Value(*TrackerString->GetValue(), TEXT("Hand="), HandString))
 			{
 				if(HandString.Equals("Right"))
 				{
@@ -413,7 +422,7 @@ void VRPNAnalogInputDevice::Update()
 
 bool VRPNAnalogInputDevice::ParseConfig(FConfigSection * InConfigSection)
 {
-	TArray<const FString*> Channels;
+	TArray<const FConfigValue*> Channels;
 	InConfigSection->MultiFindPointer(FName(TEXT("Channel")), Channels);
 	if (Channels.Num() == 0)
 	{
@@ -421,14 +430,14 @@ bool VRPNAnalogInputDevice::ParseConfig(FConfigSection * InConfigSection)
 		return false;
 	}
 
-	for (const FString* ChannelString : Channels)
+	for (const FConfigValue* ChannelString : Channels)
 	{
 		int32 ChannelId;
 		FString ChannelName;
 		FString ChannelDescription;
-		if (!FParse::Value(*(*ChannelString), TEXT("Id="), ChannelId) ||
-			!FParse::Value(*(*ChannelString), TEXT("Name="), ChannelName) ||
-			!FParse::Value(*(*ChannelString), TEXT("Description="), ChannelDescription))
+		if (!FParse::Value(*ChannelString->GetValue(), TEXT("Id="), ChannelId) ||
+			!FParse::Value(*ChannelString->GetValue(), TEXT("Name="), ChannelName) ||
+			!FParse::Value(*ChannelString->GetValue(), TEXT("Description="), ChannelDescription))
 		{
 			UE_LOG(LogVRPNInputDevice, Warning, TEXT("Config not parse channel. Expected: Channel = (Id=#,Name=String,Description=String)."));
 			continue;
