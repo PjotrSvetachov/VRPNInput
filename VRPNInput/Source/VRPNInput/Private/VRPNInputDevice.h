@@ -25,6 +25,7 @@ SOFTWARE.
 #pragma once
 
 #include "IMotionController.h"
+#include "InputCoreTypes.h"
 
 #if PLATFORM_WINDOWS
 	#include "AllowWindowsPlatformTypes.h"

@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDeviceManager.h"
+#include "VRPNInputPrivatePCH.h"
 #if PLATFORM_WINDOWS
 	#include "AllowWindowsPlatformTypes.h"
 		#include "vrpn_Tracker.h"

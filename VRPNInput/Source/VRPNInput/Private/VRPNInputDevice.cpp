@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "VRPNInputPrivatePCH.h"
 #include "VRPNInputDevice.h"
+#include "VRPNInputPrivatePCH.h"
 
 //--------------------------------BUTTON-----------------------------
 
